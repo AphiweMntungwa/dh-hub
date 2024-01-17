@@ -1,0 +1,23 @@
+{
+  "name": "dh-hub",
+  "version": "1.0.0",
+  "description": "server application for resources likes gamestate, messages, users and other features",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AphiweMntungwa/dh-hub.git"
+  },
+  "author": "Aphiwe Mntungwa",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/AphiweMntungwa/dh-hub/issues"
+  },
+  "homepage": "https://github.com/AphiweMntungwa/dh-hub#readme",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
