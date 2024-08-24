@@ -54,7 +54,7 @@ router.delete('/messages/:id', async (req, res) => {
 
 // Get recently chatted users
 router.get('/recent-chats', authenticateToken, async (req, res) => {
-    const loggedInUserId = req.query.userId; // Replace with actual user ID fetching logic
+    const loggedInUserId = req.user.sub;
 
     try {
         const [rows] = await db.query(`

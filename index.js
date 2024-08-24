@@ -5,6 +5,8 @@ import cors from "cors";
 import http from 'http';
 import usersRoute from "./routes/users.js";
 import messagesRoute from "./routes/messages.js";
+import jwt from 'jsonwebtoken';
+import generateRoomName from './lib/generateRoomName.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -21,7 +23,6 @@ app.use(express.json()); // Middleware to parse JSON bodies
 
 app.use('/api', usersRoute); // Mount the route at /api/users
 app.use('/api', messagesRoute); // Mount the route at /api/messages
-
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -41,13 +42,32 @@ const io = new Server(server, {
     }
 });
 
+io.use((socket, next) => {
+    const cookieHeader = socket.handshake.headers.cookie;
+    
+    // Use a regular expression to extract the token from cookies
+    const tokenMatch = cookieHeader && cookieHeader.match(/jwt-token=([^;]+)/);
+    const token = tokenMatch ? tokenMatch[1] : null;
+
+    if (!token) {
+        return next(new Error('Authentication error'));
+    }
+    
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) return next(new Error('Authentication error'));
+
+        socket.user = user;
+        next();
+    });
+});
+
 io.on("connection", socket => {
     console.log("user connected", socket.id)
     // Handle joining a room
-    socket.on('join-room', (roomId) => {
-        console.log(`pre room join ${roomId}`);
+    socket.on('join-room', (receiverId) => {
+        const roomId = generateRoomName(socket.user.sub, receiverId)
         socket.join(roomId);
-        console.log(`Socket ${socket.id} joined room ${roomId}`);
+        console.log(`User ${socket.user.sub} is joining room ${roomId}`);
     });
 
     // Handle leaving a room
@@ -57,7 +77,8 @@ io.on("connection", socket => {
     });
 
     // Handle sending a message
-    socket.on('send-message', ({ roomId, message }) => {
+    socket.on('send-message', ({ receiverId, message }) => {
+        const roomId = generateRoomName(socket.user.sub, receiverId)
         console.log(`Message received in room ${roomId}: ${message}`);
         // Broadcast message to all sockets in the specified room
         socket.to(roomId).emit('receive-message', message);
