@@ -1,27 +1,37 @@
 "use strict";
 import express from 'express';
-import mongoose from 'mongoose';
 import { Server } from 'socket.io';
 import cors from "cors";
 import http from 'http';
+import usersRoute from "./routes/users.js";
+import messagesRoute from "./routes/messages.js";
 
 const app = express();
 const server = http.createServer(app);
 const port = process.env.port || 3001;
 
-app.use(cors())
+const corsOptions = {
+    origin: 'http://localhost:3000', // Allow only this origin
+    credentials: true,               // Allow credentials (e.g., cookies, authorization headers)
+  };
+
+app.use(cors(corsOptions));
+
+app.use(express.json()); // Middleware to parse JSON bodies
+
+app.use('/api', usersRoute); // Mount the route at /api/users
+app.use('/api', messagesRoute); // Mount the route at /api/messages
+
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).send('Something broke!');
+  });
+
 server.listen(port, () => {
     console.log('LISTENING ON PORT', port)
 })
-
-const dbUrl = process.env.DB_URL || 'mongodb://localhost:27017/residences'
-mongoose.connect(dbUrl).then(() => console.log('DB CONNECTION SUCCESSFUL')).
-    catch(error => handleError(error));
-
-mongoose.connection.on('error', err => {
-    logError(err);
-});
-
 
 const io = new Server(server, {
     cors: {
