@@ -21,14 +21,23 @@ router.post('/messages', authenticateToken, async (req, res) => {
     }
 });
 
-// **Read** all messages or messages for a specific user
-router.get('/messages', async (req, res) => {
-    const { userId } = req.query;
+// **Read** all messages between the current user and a specific user
+router.get('/messages', authenticateToken, async (req, res) => {
+    const { receiverId } = req.query; // Get receiverId from query
+    const currentUserId = req.user.sub; // Get the current user's ID from the JWT token
 
     try {
-        const [rows] = userId
-            ? await db.query('SELECT * FROM Messages WHERE SenderId = ? OR ReceiverId = ?', [userId, userId])
-            : await db.query('SELECT * FROM Messages');
+        // Query to find messages between the current user and the receiver
+        const [rows] = await db.query(
+            `SELECT Messages.*, aspnetusers.FirstName 
+                FROM Messages 
+                JOIN aspnetusers ON Messages.SenderId = aspnetusers.Id 
+                WHERE (Messages.SenderId = ? AND Messages.ReceiverId = ?) 
+                OR (Messages.SenderId = ? AND Messages.ReceiverId = ?) 
+                ORDER BY Messages.Timestamp`,
+            [currentUserId, receiverId, receiverId, currentUserId]
+        );
+
         res.json(rows);
     } catch (err) {
         console.error(err);

@@ -7,6 +7,7 @@ import usersRoute from "./routes/users.js";
 import messagesRoute from "./routes/messages.js";
 import jwt from 'jsonwebtoken';
 import generateRoomName from './lib/generateRoomName.js';
+import db from './db.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -15,7 +16,7 @@ const port = process.env.port || 3001;
 const corsOptions = {
     origin: 'http://localhost:3000', // Allow only this origin
     credentials: true,               // Allow credentials (e.g., cookies, authorization headers)
-  };
+};
 
 app.use(cors(corsOptions));
 
@@ -28,7 +29,7 @@ app.use('/api', messagesRoute); // Mount the route at /api/messages
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');
-  });
+});
 
 server.listen(port, () => {
     console.log('LISTENING ON PORT', port)
@@ -44,7 +45,7 @@ const io = new Server(server, {
 
 io.use((socket, next) => {
     const cookieHeader = socket.handshake.headers.cookie;
-    
+
     // Use a regular expression to extract the token from cookies
     const tokenMatch = cookieHeader && cookieHeader.match(/jwt-token=([^;]+)/);
     const token = tokenMatch ? tokenMatch[1] : null;
@@ -52,7 +53,7 @@ io.use((socket, next) => {
     if (!token) {
         return next(new Error('Authentication error'));
     }
-    
+
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
         if (err) return next(new Error('Authentication error'));
 
@@ -77,11 +78,21 @@ io.on("connection", socket => {
     });
 
     // Handle sending a message
-    socket.on('send-message', ({ receiverId, message }) => {
-        const roomId = generateRoomName(socket.user.sub, receiverId)
-        console.log(`Message received in room ${roomId}: ${message}`);
-        // Broadcast message to all sockets in the specified room
-        socket.to(roomId).emit('receive-message', message);
+    socket.on('send-message', async ({ receiverId, content }) => {
+        console.log('wafika')
+        const senderId = socket.user.sub;
+        const roomId = generateRoomName(senderId, receiverId)
+        try {
+            const query = 'INSERT INTO messages (senderId, receiverId, content, timestamp, isread) VALUES (?, ?, ?, ?, ?)';
+            const timestamp = new Date();
+            const isRead = 0;
+            const [result] = await db.query(query, [senderId, receiverId, content, timestamp, isRead]);
+            console.log(result)
+            //socket.to(roomId).emit('receive-message', { SenderId, Content });
+        } catch (error) {
+            console.error('Error saving message:', error);
+        }
+        // socket.to(roomId).emit('receive-message', message);
     });
 
     // Handle disconnection
