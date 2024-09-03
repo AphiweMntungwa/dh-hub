@@ -64,22 +64,32 @@ io.use((socket, next) => {
 
 io.on("connection", socket => {
     console.log("user connected", socket.id)
-    // Handle joining a room
+
     socket.on('join-room', (receiverId) => {
         const roomId = generateRoomName(socket.user.sub, receiverId)
         socket.join(roomId);
         console.log(`User ${socket.user.sub} is joining room ${roomId}`);
     });
 
-    // Handle leaving a room
+    socket.on('join-personal-room', () => {
+        const roomId = socket.user.sub;
+        socket.join(roomId);
+        console.log(`User ${socket.user.sub} is joining personal room ${roomId}`);
+    });
+
     socket.on('leave-room', (roomId) => {
         socket.leave(roomId);
         console.log(`Socket ${socket.id} left room ${roomId}`);
     });
 
+    socket.on('leave-personal-room', () => {
+        const roomId = socket.user.sub;
+        socket.leave(roomId);
+        console.log(`Socket ${socket.user.sub} left personal room ${roomId}`);
+    });
+
     // Handle sending a message
     socket.on('send-message', async ({ receiverId, content }) => {
-        console.log('wafika')
         const senderId = socket.user.sub;
         const roomId = generateRoomName(senderId, receiverId)
         try {
@@ -87,11 +97,22 @@ io.on("connection", socket => {
             const timestamp = new Date();
             const isRead = 0;
             const [result] = await db.query(query, [senderId, receiverId, content, timestamp, isRead]);
-            console.log(result)
-            //socket.to(roomId).emit('receive-message', { SenderId, Content });
+            const insertedId = result.insertId;
+            const [rows] = await db.query(`
+                SELECT messages.*, aspnetusers.FirstName 
+                FROM messages 
+                JOIN aspnetusers ON messages.senderId = aspnetusers.Id 
+                WHERE messages.MessageId = ?
+            `, [insertedId]);
+
+            const message = rows[0];
+            socket.to(roomId).emit('receive-message', message);
+            socket.emit('receive-message', message);
+            socket.to(receiverId).emit('message-notification', { ReceiverId: receiverId, FirstName: message.FirstName })
         } catch (error) {
             console.error('Error saving message:', error);
         }
+        // const message = {receiverId, senderId,  }
         // socket.to(roomId).emit('receive-message', message);
     });
 

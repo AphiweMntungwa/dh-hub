@@ -102,4 +102,35 @@ router.get('/recent-chats', authenticateToken, async (req, res) => {
     }
 });
 
+router.get('/residence-users', authenticateToken, async (req, res) => {
+    const loggedInUserId = req.user.sub;
+
+    try {
+        // Step 1: Get the ResidenceId of the logged-in user
+        const [userResidence] = await db.query(`
+            SELECT ResidenceId 
+            FROM aspnetusers 
+            WHERE Id = ?
+        `, [loggedInUserId]);
+
+        if (!userResidence || userResidence.length === 0) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const residenceId = userResidence[0].ResidenceId;
+
+        // Step 2: Query all users with the same ResidenceId
+        const [residenceUsers] = await db.query(`
+            SELECT Id, FirstName, LastName, RoomNumber, ResidenceId, StudentNumber 
+            FROM aspnetusers 
+            WHERE ResidenceId = ? AND Id != ?
+        `, [residenceId, loggedInUserId]);
+
+        res.json(residenceUsers);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server error');
+    }
+});
+
 export default router;
